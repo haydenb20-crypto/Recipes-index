@@ -1,5 +1,5 @@
 const cache = new Map();
-const TTL = 1000 * 60 * 60 * 24;
+const TTL = 1000 * 60 * 30;
 
 module.exports = async (req, res) => {
   const key = process.env.SPOONACULAR_KEY;
@@ -37,7 +37,7 @@ module.exports = async (req, res) => {
     };
     cache.set(id, { t: Date.now(), d: out });
     if (cache.size > 800) cache.delete(cache.keys().next().value);
-    res.setHeader("Cache-Control", "public, max-age=0, s-maxage=86400");
+    res.setHeader("Cache-Control", "public, max-age=0, s-maxage=1800");
     return res.status(200).json(out);
   } catch (e) {
     return res.status(502).json({ error: "Could not reach the recipe service." });
