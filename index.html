@@ -161,6 +161,7 @@ var CUISINES=["African","American","British","Cajun","Caribbean","Chinese","East
 
 var state={q:"",diet:[],intol:[],type:null,time:null,cuisine:[],favOnly:false,offset:0};
 var results=[],total=0,loading=false;
+var ccache={},CTTL=1000*60*30;
 
 var FAVKEY="kitchen-index:favs";
 var favs={};
@@ -179,7 +180,7 @@ function toggle(arr,v){var i=arr.indexOf(v);if(i<0)arr.push(v);else arr.splice(i
 function buildChips(){
   var dr=document.getElementById("dietRow");
   DIETS.forEach(function(d){dr.appendChild(chip(d[1],function(){
-    toggle(state.diet,d[0]);this.setAttribute("aria-pressed",state.diet.indexOf(d[0])>-1);search();
+    toggle(state.diet,d[0]);this.setAttribute("aria-pressed",state.diet.indexOf(d[0])>-1);queue();
   }));});
   dr.appendChild(chip("Saved",function(){
     state.favOnly=!state.favOnly;this.setAttribute("aria-pressed",state.favOnly);
@@ -188,26 +189,26 @@ function buildChips(){
 
   var ir=document.getElementById("intolRow");
   INTOL.forEach(function(d){ir.appendChild(chip(d[1],function(){
-    toggle(state.intol,d[0]);this.setAttribute("aria-pressed",state.intol.indexOf(d[0])>-1);search();
+    toggle(state.intol,d[0]);this.setAttribute("aria-pressed",state.intol.indexOf(d[0])>-1);queue();
   },"warn"));});
 
   var tr=document.getElementById("typeRow");
   TYPES.forEach(function(t){tr.appendChild(chip(t[1],function(){
     var on=state.type===t[0];state.type=on?null:t[0];
     Array.prototype.forEach.call(tr.querySelectorAll(".chip"),function(c){c.setAttribute("aria-pressed","false");});
-    this.setAttribute("aria-pressed",!on);search();
+    this.setAttribute("aria-pressed",!on);queue();
   }));});
 
   var mr=document.getElementById("timeRow");
   TIMES.forEach(function(t){mr.appendChild(chip(t[1],function(){
     var on=state.time===t[0];state.time=on?null:t[0];
     Array.prototype.forEach.call(mr.querySelectorAll(".chip"),function(c){c.setAttribute("aria-pressed","false");});
-    this.setAttribute("aria-pressed",!on);search();
+    this.setAttribute("aria-pressed",!on);queue();
   }));});
 
   var cr=document.getElementById("cuisineRow");
   CUISINES.forEach(function(c){cr.appendChild(chip(c,function(){
-    toggle(state.cuisine,c);this.setAttribute("aria-pressed",state.cuisine.indexOf(c)>-1);search();
+    toggle(state.cuisine,c);this.setAttribute("aria-pressed",state.cuisine.indexOf(c)>-1);queue();
   }));});
 }
 
@@ -224,7 +225,12 @@ function params(){
 }
 
 var timer=null;
-function debounced(){clearTimeout(timer);timer=setTimeout(search,400);}
+function queue(ms){
+  clearTimeout(timer);
+  var c=document.getElementById("count");
+  if(c)c.textContent="Updating\u2026";
+  timer=setTimeout(function(){search();},ms||700);
+}
 
 function skeletons(n){
   var g=document.getElementById("grid");
@@ -237,10 +243,18 @@ async function search(append){
   loading=true;
   if(!append){state.offset=0;results=[];document.getElementById("grid").innerHTML="";skeletons(8);}
   document.getElementById("moreWrap").innerHTML="";
+  var qs=params();
+  var hit=ccache[qs];
+  if(hit&&Date.now()-hit.t<CTTL){
+    total=hit.d.total;
+    results=append?results.concat(hit.d.results):hit.d.results;
+    render();loading=false;return;
+  }
   try{
-    var r=await fetch("/api/recipes?"+params());
+    var r=await fetch("/api/recipes?"+qs);
     var data=await r.json();
     if(!r.ok)throw new Error(data.error||"Something went wrong.");
+    ccache[qs]={t:Date.now(),d:data};
     total=data.total||0;
     results=append?results.concat(data.results):data.results;
     render();
@@ -426,7 +440,7 @@ function paint(){
 scrim.addEventListener("click",function(e){if(e.target===scrim)close();});
 document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!scrim.hidden)close();});
 
-document.getElementById("q").addEventListener("input",function(){state.q=this.value.trim();debounced();});
+document.getElementById("q").addEventListener("input",function(){state.q=this.value.trim();queue(500);});
 document.getElementById("more").addEventListener("click",function(){
   var ex=document.getElementById("extra"),on=ex.classList.contains("hidden");
   ex.classList.toggle("hidden");
