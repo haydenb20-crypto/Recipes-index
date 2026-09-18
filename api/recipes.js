@@ -4,7 +4,7 @@ const ALLOWED = [
 ];
 
 const cache = new Map();
-const TTL = 1000 * 60 * 60 * 6;
+const TTL = 1000 * 60 * 30;
 
 function slim(r) {
   const instr = Array.isArray(r.analyzedInstructions) ? r.analyzedInstructions : [];
@@ -87,7 +87,7 @@ module.exports = async (req, res) => {
     cache.set(ck, { t: Date.now(), d: out });
     if (cache.size > 400) cache.delete(cache.keys().next().value);
 
-    res.setHeader("Cache-Control", "public, max-age=0, s-maxage=21600");
+    res.setHeader("Cache-Control", "public, max-age=0, s-maxage=1800");
     res.setHeader("x-cache", "MISS");
     return res.status(200).json(out);
   } catch (e) {
